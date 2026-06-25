@@ -6,7 +6,7 @@ import mimetypes
 st.set_page_config(page_title="VVI AI Assistant", layout="centered")
 
 # --- Gemini Client ---
-client = genai.Client(api_key="MY API KEY")
+client = genai.Client(api_key="MY_API_KEY")
 
 # --- Background Image + Styling ---
 st.markdown("""
