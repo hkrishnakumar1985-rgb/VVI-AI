@@ -2,6 +2,8 @@ import streamlit as st
 from google import genai
 from google.genai.types import Part
 import mimetypes
+import pandas as pd
+import io
 
 # --- Page Setup ---
 st.set_page_config(page_title="VVI AI Assistant", layout="centered")
@@ -9,7 +11,7 @@ st.set_page_config(page_title="VVI AI Assistant", layout="centered")
 # --- Gemini Client ---
 client = genai.Client(api_key=st.secrets["MY_API_KEY"])
 
-# --- Background Image + Styling ---
+# --- Styling ---
 st.markdown("""
     <style>
     .stApp {
@@ -27,7 +29,7 @@ st.markdown("""
     }
 
     .result-box {
-        background-color: rgba(20, 20, 20, 0.9);
+        background-color: rgba(20,20,20,0.9);
         padding: 20px;
         border-radius: 10px;
         margin-bottom: 20px;
@@ -55,43 +57,50 @@ st.markdown("""
 if "response" not in st.session_state:
     st.session_state.response = ""
 
-# --- Main Container UI ---
+# --- UI ---
 with st.container():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    
-    # --- Title ---
+
     st.title("🔧 VVI AI Assistant")
     st.caption("Velan Valves Intelligence – Ask anything or analyze files")
-    
-    # --- Show response on TOP ---
+
+    # Show response
     if st.session_state.response:
         st.markdown(f"""
         <div class="result-box">
-            <h4 style="color: #4CAF50; margin-top:0;">✅ Response:</h4>
+            <h4 style="color:#4CAF50;">✅ Response</h4>
             <p style="white-space: pre-wrap;">{st.session_state.response}</p>
         </div>
         """, unsafe_allow_html=True)
 
-    # --- File Upload ---
+    # Inputs
     uploaded_file = st.file_uploader("📂 Upload file (PDF / Excel / TXT)")
-
-    # --- Question ---
     question = st.text_input("💬 Ask your question:")
 
-    # --- Button ---
     if st.button("🚀 Get Answer"):
         if not question:
             st.warning("Please enter a question")
         else:
             with st.spinner("Processing..."):
                 try:
-                    # ✅ Case 1: With file
-                    if uploaded_file is not None:
-                        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
-                        mime_type = mime_type or "application/octet-stream"
 
-                        # ✅ safer than .read()
+                    # ✅ CASE 1: WITH FILE
+                    if uploaded_file is not None:
                         file_bytes = uploaded_file.getvalue()
+
+                        # ✅ Handle Excel separately (convert to CSV)
+                        if uploaded_file.name.endswith(".xlsx"):
+                            df = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
+
+                            csv_buffer = io.StringIO()
+                            df.to_csv(csv_buffer, index=False)
+
+                            file_bytes = csv_buffer.getvalue().encode()
+                            mime_type = "text/csv"
+
+                        else:
+                            mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+                            mime_type = mime_type or "application/octet-stream"
 
                         response = client.models.generate_content(
                             model="gemini-2.5-flash",
@@ -104,7 +113,7 @@ with st.container():
                             ]
                         )
 
-                    # ✅ Case 2: Text only
+                    # ✅ CASE 2: TEXT ONLY
                     else:
                         response = client.models.generate_content(
                             model="gemini-2.5-flash",
@@ -116,5 +125,6 @@ with st.container():
 
                 except Exception as e:
                     st.error(f"❌ Error: {e}")
-                    
+
     st.markdown('</div>', unsafe_allow_html=True)
+``
