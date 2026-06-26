@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai.types import Part
 import mimetypes
 
 # --- Page Setup ---
@@ -18,7 +19,6 @@ st.markdown("""
         background-attachment: fixed;
     }
     
-    /* Wrap everything inside a clean custom container class */
     .main-card {
         background-color: rgba(0,0,0,0.75);
         padding: 30px;
@@ -56,7 +56,6 @@ if "response" not in st.session_state:
     st.session_state.response = ""
 
 # --- Main Container UI ---
-# Using a native Streamlit container with an HTML class wrapper avoids unclosed div errors
 with st.container():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     
@@ -86,27 +85,26 @@ with st.container():
         else:
             with st.spinner("Processing..."):
                 try:
-                    # ✅ Case 1: Processing with an uploaded file
+                    # ✅ Case 1: With file
                     if uploaded_file is not None:
                         mime_type, _ = mimetypes.guess_type(uploaded_file.name)
                         mime_type = mime_type or "application/octet-stream"
-                        
-                        # Read bytes directly from the Streamlit object
-                        file_bytes = uploaded_file.read()
-                        
-                        # Pass data inline using the correct SDK structure
+
+                        # ✅ safer than .read()
+                        file_bytes = uploaded_file.getvalue()
+
                         response = client.models.generate_content(
-                            model="gemini-2.5-flash", # Adjusted to standard flash model
+                            model="gemini-2.5-flash",
                             contents=[
-                                {
-                                    "mime_type": mime_type,
-                                    "data": file_bytes
-                                },
-                                question
+                                question,
+                                Part.from_bytes(
+                                    data=file_bytes,
+                                    mime_type=mime_type
+                                )
                             ]
                         )
 
-                    # ✅ Case 2: Text prompt only
+                    # ✅ Case 2: Text only
                     else:
                         response = client.models.generate_content(
                             model="gemini-2.5-flash",
